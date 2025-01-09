@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="stylesheet.css">
+    <title>Binary Image</title>
+</head>
+
+<body>
+    <h1>Convert Image to Binary (Black and White)</h1>
+    <input type="file" id="imageInput" accept="image/*">
+    <br><br>
+    <label for="threshold">Threshold:</label>
+    <input type="range" id="threshold" min="0" max="255" value="128">
+    <span id="thresholdValue">128</span>
+    <br><br>
+    <div id="imageAndText">
+        <canvas id="imageCanvas"></canvas>
+        <textarea name="textarea" id="textarea"></textarea>
+    </div>
+    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
+    <script async src="opencv.js"></script>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const thresholdInput = document.getElementById('threshold');
+        const thresholdValue = document.getElementById('thresholdValue');
+        let files = [];
+
+        thresholdInput.addEventListener('input', () => {
+            thresholdValue.textContent = thresholdInput.value;
+            if (canvas.width > 0 && canvas.height > 0) {
+                applyBinaryThreshold(Number(thresholdInput.value));
+                drawBoundingBoxes();
+                recognizeTextFromCanvas();
+            }
+        });
+
+        imageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            files.push(file);
+            if (file) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const img = new Image();
+                img.onload = () => {
+                    const scaleFactor = 0.5;
+                    canvas.width = img.width * scaleFactor;
+                    canvas.height = img.height * scaleFactor;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    applyBinaryThreshold(Number(thresholdInput.value));
+                    drawBoundingBoxes();
+                    recognizeTextFromCanvas();
+                };
+                img.src = URL.createObjectURL(file);
+            }
+        });
+
+        function applyBinaryThreshold(threshold) {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const red = data[i];
+                const green = data[i + 1];
+                const blue = data[i + 2];
+                const grayscale = 0.3 * red + 0.59 * green + 0.11 * blue;
+                const binary = grayscale > threshold ? 255 : 0;
+                data[i] = data[i + 1] = data[i + 2] = binary;
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function drawBoundingBoxes() {
+            const src = cv.imread(canvas);
+            const gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+            const thresh = new cv.Mat();
+            cv.threshold(gray, thresh, 128, 255, cv.THRESH_BINARY);
+
+            const contours = new cv.MatVector();
+            const hierarchy = new cv.Mat();
+            cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            const MIN_WIDTH = 50;
+            const MIN_HEIGHT = 50;
+
+            for (let i = 0; i < contours.size(); i++) {
+                const rect = cv.boundingRect(contours.get(i));
+                if (rect.width >= MIN_WIDTH && rect.height >= MIN_HEIGHT) {
+                    ctx.strokeStyle = 'blue';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                }
+            }
+
+            src.delete();
+            gray.delete();
+            thresh.delete();
+            contours.delete();
+            hierarchy.delete();
+        }
+
+        function recognizeTextFromCanvas() {
+            const output = document.getElementById('textarea');
+            output.value = "Recognizing text...";
+            const dataUrl = canvas.toDataURL();
+
+            Tesseract.recognize(dataUrl, 'eng', { logger: info => console.log(info) })
+                .then(({ data: { text } }) => {
+                    output.value = `${text}`;
+                })
+                .catch(err => {
+                    console.error(err);
+                    output.value = "Error recognizing text.";
+                });
+        }
+    </script>
+</body>
+
+</html>

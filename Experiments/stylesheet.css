@@ -1,0 +1,26 @@
+/* Ensure the container spans the full width and height */
+#imageAndText {
+    display: flex; /* Use flexbox for easy layout */
+    width: 100vw; /* Full viewport width */
+    height: 100vh; /* Full viewport height */
+    margin: 0; /* Remove default margins */
+    padding: 0; /* Remove default padding */
+}
+
+/* Style the canvas */
+#imageCanvas {
+    flex: 1; /* Take up 50% of the parent width */
+    background-color: #f0f0f0; /* Optional background for visibility */
+}
+
+/* Style the textarea */
+#textarea {
+    flex: 1; /* Take up 50% of the parent width */
+    resize: none; /* Prevent resizing */
+    border: 1px solid #ccc; /* Optional border for visibility */
+}
+
+input {
+    align-content: center;
+    width: 1500px;
+}
