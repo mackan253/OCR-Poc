@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receipt Cropping</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+    }
+    canvas {
+      margin: 10px;
+      border: 1px solid black;
+    }
+  </style>
+</head>
+<body>
+  <h1>Receipt Cropping Modules</h1>
+  <input type="file" id="fileInput" accept="image/*">
+  <canvas id="originalCanvas"></canvas>
+  <canvas id="croppedCanvas"></canvas>
+
+  <script async src="https://docs.opencv.org/4.5.5/opencv.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
