@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Receipt Scanner</title>
+    <script src="../../Helper/opencv.js"></script>
+</head>
+<body>
+    <input type="file" id="fileInput"">
+    <img id="inputImage">
+    <canvas id="outputCanvas"></canvas>
+
+    <script>
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    const inputImage = document.getElementById('inputImage');
+                    inputImage.onload = function() {
+                        processReceiptImage(inputImage);
+                    };
+                    inputImage.src = event.target.result;
+                };
+                
+                reader.readAsDataURL(file);
+            });
+
+        function processReceiptImage(imageElement) {
+            const src = cv.imread(imageElement);
+            const croppedReceipt = cropReceiptAtMargins(src);
+            // const washedImage = filterColorPixels(croppedReceipt);
+            
+            if (croppedReceipt) {
+                cv.imshow('outputCanvas', croppedReceipt);
+            }
+        }
+
+        function visualizeReceiptMargins(inputImage) {
+            // Convert to grayscale
+            const gray = new cv.Mat();
+            cv.cvtColor(inputImage, gray, cv.COLOR_RGBA2GRAY);
+
+            // Apply threshold
+            const binary = new cv.Mat();
+            cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+
+            // Horizontal and vertical projections
+            const vertProjection = new cv.Mat.zeros(1, binary.cols, cv.CV_32F);
+            const horzProjection = new cv.Mat.zeros(1, binary.rows, cv.CV_32F);
+
+            // Calculate vertical projection
+            for (let x = 0; x < binary.cols; x++) {
+                let columnPixels = 0;
+                for (let y = 0; y < binary.rows; y++) {
+                    if (binary.ucharPtr(y, x)[0] > 0) columnPixels++;
+                }
+                vertProjection.floatPtr(0, x)[0] = columnPixels;
+            }
+
+            // Calculate horizontal projection
+            for (let y = 0; y < binary.rows; y++) {
+                let rowPixels = 0;
+                for (let x = 0; x < binary.cols; x++) {
+                    if (binary.ucharPtr(y, x)[0] > 0) rowPixels++;
+                }
+                horzProjection.floatPtr(0, y)[0] = rowPixels;
+            }
+
+            // Find margins
+            const vertThreshold = binary.rows * 0.6;
+            const horzThreshold = binary.cols * 0.6;
+            let leftMargin = 0, rightMargin = binary.cols;
+            let topMargin = 0, bottomMargin = binary.rows;
+
+            // Find vertical margins
+            for (let x = 0; x < binary.cols / 2; x++) {
+                if (vertProjection.floatPtr(0, x)[0] > vertThreshold) {
+                    leftMargin = x;
+                    break;
+                }
+            }
+
+            for (let x = binary.cols - 1; x > binary.cols / 2; x--) {
+                if (vertProjection.floatPtr(0, x)[0] > vertThreshold) {
+                    rightMargin = x;
+                    break;
+                }
+            }
+
+            // Find horizontal margins
+            for (let y = 0; y < binary.rows / 2; y++) {
+                if (horzProjection.floatPtr(0, y)[0] > horzThreshold) {
+                    topMargin = y;
+                    break;
+                }
+            }
+
+            for (let y = binary.rows - 1; y > binary.rows / 2; y--) {
+                if (horzProjection.floatPtr(0, y)[0] > horzThreshold) {
+                    bottomMargin = y;
+                    break;
+                }
+            }
+
+            // Draw margin lines on original image
+            const result = inputImage.clone();
+            const color = new cv.Scalar(0, 255, 0, 255); // Green
+
+            // Vertical margin lines
+            cv.line(result, new cv.Point(leftMargin, 0), new cv.Point(leftMargin, result.rows), color, 2);
+            cv.line(result, new cv.Point(rightMargin, 0), new cv.Point(rightMargin, result.rows), color, 2);
+
+            // Horizontal margin lines
+            cv.line(result, new cv.Point(0, topMargin), new cv.Point(result.cols, topMargin), color, 2);
+            cv.line(result, new cv.Point(0, bottomMargin), new cv.Point(result.cols, bottomMargin), color, 2);
+
+            return result;
+}
+
+function cropReceiptAtMargins(inputImage) {
+   // Convert to grayscale
+   const gray = new cv.Mat();
+   cv.cvtColor(inputImage, gray, cv.COLOR_RGBA2GRAY);
+
+   // Apply threshold
+   const binary = new cv.Mat();
+   cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+
+   // Horizontal and vertical projections
+   const vertProjection = new cv.Mat.zeros(1, binary.cols, cv.CV_32F);
+   const horzProjection = new cv.Mat.zeros(1, binary.rows, cv.CV_32F);
+
+   // Calculate vertical projection
+   for (let x = 0; x < binary.cols; x++) {
+       let columnPixels = 0;
+       for (let y = 0; y < binary.rows; y++) {
+           if (binary.ucharPtr(y, x)[0] > 0) columnPixels++;
+       }
+       vertProjection.floatPtr(0, x)[0] = columnPixels;
+   }
+
+   // Calculate horizontal projection
+   for (let y = 0; y < binary.rows; y++) {
+       let rowPixels = 0;
+       for (let x = 0; x < binary.cols; x++) {
+           if (binary.ucharPtr(y, x)[0] > 0) rowPixels++;
+       }
+       horzProjection.floatPtr(0, y)[0] = rowPixels;
+   }
+
+   // Find margins
+   const vertThreshold = binary.rows * 0.6;
+   const horzThreshold = binary.cols * 0.6;
+   let leftMargin = 0, rightMargin = binary.cols;
+   let topMargin = 0, bottomMargin = binary.rows;
+
+   // Find vertical margins
+   for (let x = 0; x < binary.cols / 2; x++) {
+       if (vertProjection.floatPtr(0, x)[0] > vertThreshold) {
+           leftMargin = x;
+           break;
+       }
+   }
+
+   for (let x = binary.cols - 1; x > binary.cols / 2; x--) {
+       if (vertProjection.floatPtr(0, x)[0] > vertThreshold) {
+           rightMargin = x;
+           break;
+       }
+   }
+
+   // Find horizontal margins
+   for (let y = 0; y < binary.rows / 2; y++) {
+       if (horzProjection.floatPtr(0, y)[0] > horzThreshold) {
+           topMargin = y;
+           break;
+       }
+   }
+
+   for (let y = binary.rows - 1; y > binary.rows / 2; y--) {
+       if (horzProjection.floatPtr(0, y)[0] > horzThreshold) {
+           bottomMargin = y;
+           break;
+       }
+   }
+
+   // Crop the image to the detected margins
+   const croppedRect = new cv.Rect(leftMargin, topMargin, 
+                                    rightMargin - leftMargin, 
+                                    bottomMargin - topMargin);
+   const croppedImage = inputImage.roi(croppedRect);
+
+   return croppedImage;
+}
+
+        function detectReceiptSides(inputImage) {
+            // Convert to grayscale
+            const gray = new cv.Mat();
+            cv.cvtColor(inputImage, gray, cv.COLOR_RGBA2GRAY);
+
+            // Apply threshold to create binary image
+            const binary = new cv.Mat();
+            cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+
+            // Find vertical projection
+            const projection = new cv.Mat.zeros(1, binary.cols, cv.CV_32F);
+            for (let x = 0; x < binary.cols; x++) {
+                let columnPixels = 0;
+                for (let y = 0; y < binary.rows; y++) {
+                    if (binary.ucharPtr(y, x)[0] > 0) columnPixels++;
+                }
+                projection.floatPtr(0, x)[0] = columnPixels;
+            }
+
+            // Find margins with lowest pixel density
+            const threshold = binary.rows * 0.6; // 10% of image height
+            let leftMargin = 0, rightMargin = binary.cols;
+
+            for (let x = 0; x < binary.cols / 2; x++) {
+                if (projection.floatPtr(0, x)[0] > threshold) {
+                    leftMargin = x;
+                    break;
+                }
+            }
+
+            for (let x = binary.cols - 1; x > binary.cols / 2; x--) {
+                if (projection.floatPtr(0, x)[0] > threshold) {
+                    rightMargin = x;
+                    break;
+                }
+            }
+
+            // Crop image
+            const roi = new cv.Rect(leftMargin, 0, rightMargin - leftMargin, inputImage.rows);
+            return inputImage.roi(roi);
+}
+
+        function filterColorPixels(inputImage) {
+            // Create a copy of the input image to modify
+            const result = inputImage.clone();
+
+            // Iterate through each pixel
+            for (let y = 0; y < result.rows; y++) {
+                for (let x = 0; x < result.cols; x++) {
+                    // Get pixel values
+                    const pixel = result.ucharPtr(y, x);
+                    const [r, g, b] = pixel;
+
+                    // Check if pixel is not grayscale (color variation > threshold)
+                    const colorVariance = Math.max(
+                        Math.abs(r - g), 
+                        Math.abs(r - b), 
+                        Math.abs(g - b)
+                    );
+
+                    // If color variance is significant, turn pixel white
+                    if (colorVariance > 30) {
+                        pixel[0] = 255;  // R
+                        pixel[1] = 255;  // G
+                        pixel[2] = 255;  // B
+                    }
+                }
+            }
+
+            return result;
+}
+    </script>
+</body>
+</html>
