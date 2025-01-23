@@ -67,13 +67,17 @@ function processImage(img) {
         
         // Setup canvases
         const originalCanvas = document.getElementById('originalCanvas');
+        const preProcessedCanvas = document.getElementById('preProcessedCanvas');
         const croppedCanvas = document.getElementById('croppedCanvas');
         
         // Set canvas dimensions
         originalCanvas.width = img.width;
         originalCanvas.height = img.height;
+        preProcessedCanvas.width = img.width;
+        preProcessedCanvas.height = img.height;
         croppedCanvas.width = img.width;
         croppedCanvas.height = img.height;
+    
         
         // Draw original image
         const ctxOriginal = originalCanvas.getContext('2d');
@@ -88,23 +92,18 @@ function processImage(img) {
         });
         
         // Process the image
-        const processed = preprocessImage(src);
-        console.log('test1');
-        if (!processed || processed.isDeleted()) {
-            throw new Error('Processed image is not a valid Mat or has been deleted.');
-        }
-        if (!croppedCanvas) {
-            throw new Error('Canvas element "croppedCanvas" not found.');
-        }
+        const { outlined, cropped } = preprocessImage(src);
 
 
         // Display result
-        cv.imshow(croppedCanvas, processed);
-        console.log('test2');
+        cv.imshow(preProcessedCanvas, outlined);
+        cv.imshow(croppedCanvas, cropped);
+
         // Cleanup
+
         src.delete();
-        processed.delete();
-        console.log('test3');
+        outlined.delete();
+        cropped.delete();
         
         console.log('Processing completed successfully!');
     } catch (error) {
@@ -172,9 +171,15 @@ function preprocessImage(src) {
             }
         }
         
+        
         if (maxContourIndex === -1) {
             throw new ImageProcessingError('No significant contours found', 'contour-detection');
         }
+        const largestContour = contours.get(maxContourIndex);
+        const boundingRect = cv.boundingRect(largestContour); 
+        console.log(`Found ${boundingRect} bounds`);
+
+        const croppedMat = src.roi(boundingRect);
         
         // Get the result image
         const result = src.clone();
@@ -185,7 +190,11 @@ function preprocessImage(src) {
         cv.drawContours(result, contours, maxContourIndex, color, 2);
         
         console.log('Preprocessing completed successfully');
-        return result;
+        return {
+            outlined: result,
+            cropped: croppedMat
+        };
+
     } catch (error) {
         throw new ImageProcessingError(
             `Preprocessing failed: ${error.message}`,
